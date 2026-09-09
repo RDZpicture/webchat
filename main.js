@@ -10,10 +10,12 @@ const state = {
 	search: '',
 	messageStart: 0,
 	pendingChat: null,
+	pendingUpdateMessages: null,
 	messageQuery: '',
 	profilePhotoDraft: '',
 	updateMode: false,
 	chatBackgroundDraft: '',
+	chatBackgroundLoading: false,
 	googleClientId: GOOGLE_CLIENT_ID,
 	driveToken: null,
 	driveFileId: null
@@ -297,13 +299,7 @@ function updateActiveChat(file) {
 			showToast('No encontré mensajes con formato de WhatsApp.');
 			return;
 		}
-		const previousCount = chat.messages.length;
-		chat.messages = mergeMessages(chat.messages, incomingMessages);
-		chat.myAuthor ||= getOwnAuthor(chat.messages);
-		if (!saveChats()) return;
-		state.messageStart = Math.max(0, chat.messages.length - MESSAGE_BATCH_SIZE);
-		openChat(chat.id);
-		showToast(`${chat.messages.length - previousCount} mensajes nuevos añadidos`);
+		showAuthorDialog(chat, incomingMessages);
 		elements.updateFileInput.value = '';
 	};
 	reader.onerror = () => showToast('No pude leer ese archivo.');
@@ -367,11 +363,13 @@ function getChatNameForAuthor(fileName, messages, myAuthor) {
 
 function finishImport(chat, myAuthor) {
 	chat.myAuthor = myAuthor;
+	chat.myAuthors = myAuthor ? [myAuthor] : [];
 	chat.name = getChatNameForAuthor(chat.fileName, chat.messages, myAuthor);
 	chat.profile = { name: chat.name, phone: '', notes: '', photo: '', dates: [] };
 	delete chat.fileName;
 	state.chats.unshift(chat);
 	state.pendingChat = null;
+	state.pendingUpdateMessages = null;
 	saveChats();
 	renderChatList();
 	openChat(chat.id);
@@ -379,18 +377,36 @@ function finishImport(chat, myAuthor) {
 	elements.fileInput.value = '';
 }
 
-function showAuthorDialog(chat) {
-	const authors = getChatAuthors(chat.messages);
+function showAuthorDialog(chat, updateMessages = null) {
+	const authors = getChatAuthors(updateMessages ? [...chat.messages, ...updateMessages] : chat.messages);
 	state.pendingChat = chat;
+	state.pendingUpdateMessages = updateMessages;
 	elements.authorSelect.innerHTML = authors.map((author) => `<option value="${escapeHtml(author)}">${escapeHtml(author)}</option>`).join('');
+	if (chat.myAuthor) elements.authorSelect.value = chat.myAuthor;
 	elements.authorDialog.hidden = false;
 	elements.authorSelect.focus();
 }
 
 function closeAuthorDialog() {
 	state.pendingChat = null;
+	state.pendingUpdateMessages = null;
 	elements.authorDialog.hidden = true;
 	elements.fileInput.value = '';
+}
+
+function finishChatUpdate(chat, incomingMessages, myAuthor) {
+	const previousCount = chat.messages.length;
+	const previousAuthors = chat.myAuthors || (chat.myAuthor ? [chat.myAuthor] : []);
+	chat.messages = mergeMessages(chat.messages, incomingMessages);
+	chat.myAuthor = myAuthor;
+	chat.myAuthors = [...new Map([...previousAuthors, myAuthor].filter(Boolean).map((author) => [authorKey(author), author])).values()];
+	if (!saveChats()) return;
+	state.pendingChat = null;
+	state.pendingUpdateMessages = null;
+	elements.authorDialog.hidden = true;
+	state.messageStart = Math.max(0, chat.messages.length - MESSAGE_BATCH_SIZE);
+	openChat(chat.id);
+	showToast(`${chat.messages.length - previousCount} mensajes nuevos añadidos`);
 }
 
 function importChat(file) {
@@ -455,6 +471,7 @@ function openChat(id) {
 	const chat = state.chats.find((item) => item.id === id);
 	if (!chat) return;
 	chat.myAuthor ||= getOwnAuthor(chat.messages);
+	chat.myAuthors ||= chat.myAuthor ? [chat.myAuthor] : [];
 	getProfile(chat);
 	state.activeChatId = id;
 	state.messageStart = Math.max(0, chat.messages.length - MESSAGE_BATCH_SIZE);
@@ -488,7 +505,7 @@ function renderMessages(chat) {
 		}
 		const bubble = document.createElement('article');
 		bubble.className = `message-row ${message.author ? 'with-author' : 'system-message'}`;
-		const isMine = authorKey(message.author) === authorKey(chat.myAuthor);
+		const isMine = chat.myAuthors.some((author) => authorKey(message.author) === authorKey(author));
 		if (message.author) bubble.classList.add(isMine ? 'mine' : 'theirs');
 		const author = message.author && !isMine ? `<span class="message-author">${escapeHtml(message.author)}</span>` : '';
 		const starred = chat.starred?.includes(chat.messages.indexOf(message));
@@ -648,6 +665,10 @@ function openChatStyle() {
 function saveChatStyle() {
 	const chat = getActiveChat();
 	if (!chat) return;
+	if (state.chatBackgroundLoading) {
+		showToast('Espera a que termine de cargar la imagen.');
+		return;
+	}
 	const theme = getChatTheme(chat);
 	theme.background = elements.chatBackgroundColor.value;
 	theme.mine = elements.myBubbleColor.value;
@@ -738,6 +759,10 @@ document.querySelector('#disconnectDriveButton').addEventListener('click', () =>
 document.querySelector('#cancelAuthorButton').addEventListener('click', closeAuthorDialog);
 document.querySelector('#confirmAuthorButton').addEventListener('click', () => {
 	if (!state.pendingChat) return;
+	if (state.pendingUpdateMessages !== null) {
+		finishChatUpdate(state.pendingChat, state.pendingUpdateMessages, elements.authorSelect.value);
+		return;
+	}
 	finishImport(state.pendingChat, elements.authorSelect.value);
 	elements.authorDialog.hidden = true;
 });
@@ -786,8 +811,22 @@ document.querySelector('#clearChatBackground').addEventListener('click', () => {
 document.querySelector('#chatBackgroundImage').addEventListener('change', (event) => {
 	const file = event.target.files[0];
 	if (!file) return;
+	state.chatBackgroundLoading = true;
 	const reader = new FileReader();
-	reader.onload = () => prepareProfileImage(String(reader.result)).then((imageData) => { state.chatBackgroundDraft = imageData; });
+	reader.onload = () => prepareProfileImage(String(reader.result)).then((imageData) => {
+		state.chatBackgroundDraft = imageData;
+		state.chatBackgroundLoading = false;
+		const chat = getActiveChat();
+		if (chat) {
+			const theme = getChatTheme(chat);
+			theme.image = imageData;
+			applyChatTheme(chat);
+		}
+	});
+	reader.onerror = () => {
+		state.chatBackgroundLoading = false;
+		showToast('No pude leer la imagen de fondo.');
+	};
 	reader.readAsDataURL(file);
 });
 document.querySelector('#profilePhotoInput').addEventListener('change', (event) => {
