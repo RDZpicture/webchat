@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="es">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+	<meta name="theme-color" content="#f3efe7">
+	<title>Conversaciones</title>
+	<link rel="stylesheet" href="style.css">
+</head>
+<body>
+	<div class="app-shell">
+		<aside class="sidebar" id="sidebar">
+			<header class="sidebar-header">
+				<div>
+					<p class="eyebrow">Archivo personal</p>
+					<h1>Conversaciones</h1>
+				</div>
+				<button class="icon-button" id="newChatButton" type="button" title="Importar chat" aria-label="Importar chat">+</button>
+			</header>
+
+			<div class="search-wrap">
+				<span aria-hidden="true">⌕</span>
+				<input id="chatSearch" type="search" placeholder="Buscar conversaciones" aria-label="Buscar conversaciones">
+			</div>
+
+			<div class="chat-list" id="chatList" aria-live="polite"></div>
+			<div class="empty-sidebar" id="emptySidebar" hidden>
+				<span class="empty-mark">✦</span>
+				<p>Aún no hay conversaciones.</p>
+				<button class="text-button" id="emptyImportButton" type="button">Importar un chat</button>
+			</div>
+
+			<footer class="sidebar-footer">
+				<div class="storage-status"><span class="status-dot" id="cloudStatusDot"></span><span id="storageStatus">Guardado en este dispositivo</span></div>
+				<button class="drive-button" id="driveButton" type="button">Drive <span>↥</span></button>
+			</footer>
+		</aside>
+
+		<main class="conversation-panel" id="conversationPanel">
+			<div class="welcome-view" id="welcomeView">
+				<div class="welcome-icon">✦</div>
+				<p class="eyebrow">Tu archivo, a tu manera</p>
+				<h2>Trae tus conversaciones<br>de WhatsApp.</h2>
+				<p class="welcome-copy">Importa un archivo de texto y conviértelo en una conversación cómoda de leer, buscar y conservar.</p>
+				<button class="primary-button" id="welcomeImportButton" type="button"><span>↥</span> Importar chats.txt</button>
+				<p class="privacy-note">Tus archivos no salen de este dispositivo.</p>
+			</div>
+
+			<section class="conversation-view" id="conversationView" hidden>
+				<header class="conversation-header">
+					<button class="back-button" id="backButton" type="button" title="Volver a conversaciones" aria-label="Volver a conversaciones">←</button>
+					<button class="conversation-avatar profile-trigger" id="conversationAvatar" type="button" title="Abrir perfil" aria-label="Abrir perfil">?</button>
+					<div class="conversation-heading">
+						<button class="conversation-title-button profile-trigger" id="conversationTitle" type="button">Conversación</button>
+						<p id="conversationMeta">0 mensajes</p>
+					</div>
+					<div class="conversation-actions">
+						<button class="icon-button subtle" id="conversationMenuButton" type="button" title="Más opciones" aria-label="Más opciones">⋯</button>
+						<div class="action-menu" id="conversationMenu" hidden>
+							<button type="button" id="searchChatButton">⌕ <span>Buscar en el chat</span></button>
+							<button type="button" id="starredButton">☆ <span>Destacados</span></button>
+							<button type="button" id="updateChatButton">↻ <span>Actualizar chat</span></button>
+							<button type="button" id="chatStyleButton" class="mobile-only-action">◐ <span>Estilo del chat</span></button>
+							<button type="button" id="contactInfoButton">ⓘ <span>Información del contacto</span></button>
+							<button type="button" id="deleteChatButton" class="danger-action">⌫ <span>Eliminar conversación</span></button>
+						</div>
+					</div>
+				</header>
+				<div class="message-area" id="messageArea"></div>
+			</section>
+		</main>
+	</div>
+
+	<input id="fileInput" type="file" accept=".txt,text/plain" hidden>
+	<input id="updateFileInput" type="file" accept=".txt,text/plain" hidden>
+	<section class="author-dialog" id="authorDialog" role="dialog" aria-modal="true" aria-labelledby="authorDialogTitle" hidden>
+		<div class="author-dialog-card">
+			<p class="eyebrow">Una última cosa</p>
+			<h2 id="authorDialogTitle">¿Cuál de estos usuarios eres tú?</h2>
+			<p class="dialog-copy">Tus mensajes aparecerán a la derecha. Todos los demás participantes aparecerán a la izquierda.</p>
+			<label class="author-label" for="authorSelect">Selecciona tu nombre</label>
+			<select id="authorSelect"></select>
+			<div class="dialog-actions">
+				<button class="secondary-button" id="cancelAuthorButton" type="button">Cancelar</button>
+				<button class="primary-button" id="confirmAuthorButton" type="button">Continuar</button>
+			</div>
+		</div>
+	</section>
+	<section class="author-dialog" id="profileDialog" role="dialog" aria-modal="true" aria-labelledby="profileDialogTitle" hidden>
+		<div class="profile-card">
+			<div class="profile-card-header">
+				<div>
+					<p class="eyebrow">Ficha del contacto</p>
+					<h2 id="profileDialogTitle">Perfil</h2>
+				</div>
+				<button class="modal-close" id="closeProfileButton" type="button" aria-label="Cerrar perfil">×</button>
+			</div>
+			<div class="profile-photo-row">
+				<div class="profile-photo" id="profilePhotoPreview">?</div>
+				<label class="secondary-button photo-button">Cambiar foto<input id="profilePhotoInput" type="file" accept="image/*" hidden></label>
+			</div>
+			<div class="profile-fields">
+				<label>Nombre<input id="profileNameInput" type="text" placeholder="Nombre del contacto"></label>
+				<label>Número de teléfono<input id="profilePhoneInput" type="tel" placeholder="+34 600 000 000"></label>
+				<label>Notas<textarea id="profileNotesInput" rows="3" placeholder="Escribe algo para recordar..."></textarea></label>
+				<label>Fecha importante<input id="profileDateInput" type="date"></label>
+				<label>Nombre de la fecha<input id="profileDateLabelInput" type="text" placeholder="Cumpleaños, aniversario..."></label>
+			</div>
+			<div class="dialog-actions"><button class="primary-button" id="saveProfileButton" type="button">Guardar perfil</button></div>
+			<div class="important-dates" id="importantDates"></div>
+		</div>
+	</section>
+	<section class="author-dialog" id="searchDialog" role="dialog" aria-modal="true" aria-labelledby="searchDialogTitle" hidden>
+		<div class="small-dialog-card">
+			<div class="profile-card-header"><h2 id="searchDialogTitle">Buscar en el chat</h2><button class="modal-close" data-close-dialog="searchDialog" type="button" aria-label="Cerrar búsqueda">×</button></div>
+			<input class="dialog-search" id="messageSearchInput" type="search" placeholder="Escribe para buscar..." autofocus>
+			<div class="search-results" id="messageSearchResults"></div>
+		</div>
+	</section>
+	<section class="author-dialog" id="starredDialog" role="dialog" aria-modal="true" aria-labelledby="starredDialogTitle" hidden>
+		<div class="small-dialog-card">
+			<div class="profile-card-header"><h2 id="starredDialogTitle">Destacados</h2><button class="modal-close" data-close-dialog="starredDialog" type="button" aria-label="Cerrar destacados">×</button></div>
+			<div class="search-results" id="starredResults"></div>
+		</div>
+	</section>
+	<section class="author-dialog" id="styleDialog" role="dialog" aria-modal="true" aria-labelledby="styleDialogTitle" hidden>
+		<div class="small-dialog-card style-card">
+			<div class="profile-card-header"><div><p class="eyebrow">Solo en móvil</p><h2 id="styleDialogTitle">Estilo del chat</h2></div><button class="modal-close" data-close-dialog="styleDialog" type="button" aria-label="Cerrar estilo">×</button></div>
+			<div class="style-fields">
+				<label>Fondo del chat<input id="chatBackgroundColor" type="color"></label>
+				<label>Tus burbujas<input id="myBubbleColor" type="color"></label>
+				<label>Otras burbujas<input id="otherBubbleColor" type="color"></label>
+				<label class="background-image-label">Imagen de fondo<input id="chatBackgroundImage" type="file" accept="image/*"></label>
+			</div>
+			<div class="dialog-actions"><button class="secondary-button" id="clearChatBackground" type="button">Quitar imagen</button><button class="primary-button" id="saveChatStyleButton" type="button">Guardar estilo</button></div>
+		</div>
+	</section>
+	<section class="author-dialog" id="driveDialog" role="dialog" aria-modal="true" aria-labelledby="driveDialogTitle" hidden>
+		<div class="small-dialog-card drive-card">
+			<div class="profile-card-header"><div><p class="eyebrow">Sincronización privada</p><h2 id="driveDialogTitle">Tu archivo en Drive</h2></div><button class="modal-close" id="closeDriveButton" type="button" aria-label="Cerrar Drive">×</button></div>
+			<p class="dialog-copy">Tus conversaciones se guardan en el espacio privado de esta app dentro de tu Google Drive.</p>
+			<p class="drive-dialog-status" id="driveDialogStatus">No conectado</p>
+			<div class="dialog-actions drive-actions"><button class="secondary-button" id="disconnectDriveButton" type="button" hidden>Desconectar</button><button class="primary-button" id="connectDriveButton" type="button">Conectar Drive</button><button class="secondary-button" id="pullDriveButton" type="button" hidden>Traer chats de Drive</button><button class="primary-button" id="syncDriveButton" type="button" hidden>Sincronizar ahora</button></div>
+			<p class="drive-help">La sesión se recupera automáticamente con tu cuenta de Google cuando es posible.</p>
+		</div>
+	</section>
+	<div class="toast" id="toast" role="status" aria-live="polite"></div>
+	<script src="https://accounts.google.com/gsi/client" async defer></script>
+	<script src="main.js"></script>
+</body>
+</html>
